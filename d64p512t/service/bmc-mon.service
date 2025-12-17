@@ -1,0 +1,19 @@
+[Unit]
+Description=BMC monitoring and control service
+Requires=database.service
+After=database.service
+After=syncd.service
+PartOf=syncd.service
+
+Requires=config-setup.service
+After=config-setup.service
+After=sonic.target
+Before=ntp-config.service
+
+[Service]
+User=root
+ExecStart=/usr/local/bin/bmc_mon.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=sonic.target syncd.service

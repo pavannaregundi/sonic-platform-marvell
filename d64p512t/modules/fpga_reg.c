@@ -1,0 +1,37 @@
+#include <linux/module.h>
+#include <linux/kernel.h>
+#include "fpga.h"
+#include "fpga_attr.h"
+#include "fpga_reg.h"
+
+const d64p512t_fpga_reg_st sysfpga_reg_table[FPGA_REG_SIZE_MAX] = {
+    { "sys-fpga-test", NULL, I2C_DEV_ATTR_SHOW_DEFAULT, I2C_DEV_ATTR_STORE_DEFAULT, 0x00, 0, 32 },
+    { "sys-fpga-revision", NULL, I2C_DEV_ATTR_SHOW_DEFAULT, I2C_DEV_ATTR_STORE_DEFAULT, 0x08, 0, 32 },
+    { "sys-fpga-board-id", NULL, I2C_DEV_ATTR_SHOW_DEFAULT, I2C_DEV_ATTR_STORE_DEFAULT, 0x0C, 0, 32 },
+    { "psu-1-present", NULL, I2C_DEV_ATTR_SHOW_DEFAULT, I2C_DEV_ATTR_STORE_DEFAULT, 0x20, 16, 1 },
+    { "psu-2-present", NULL, I2C_DEV_ATTR_SHOW_DEFAULT, I2C_DEV_ATTR_STORE_DEFAULT, 0x20, 20, 1 },
+    { "psu-1-powergood", NULL, I2C_DEV_ATTR_SHOW_DEFAULT, I2C_DEV_ATTR_STORE_DEFAULT, 0x20, 17, 1 },
+    { "psu-2-powergood", NULL, I2C_DEV_ATTR_SHOW_DEFAULT, I2C_DEV_ATTR_STORE_DEFAULT, 0x20, 21, 1 },
+    { "fp-push-btn", NULL, I2C_DEV_ATTR_SHOW_DEFAULT, I2C_DEV_ATTR_STORE_DEFAULT, 0x20, 1, 1 },
+    { "uart-mux-control-reg", NULL, I2C_DEV_ATTR_SHOW_DEFAULT, I2C_DEV_ATTR_STORE_DEFAULT, 0x40, 0, 8 },
+    { "sysled-sys-green-trigger", NULL, I2C_DEV_ATTR_SHOW_DEFAULT, I2C_DEV_ATTR_STORE_DEFAULT, 0x84, 1, 1 },
+    { "sysled-sys-red-trigger", NULL, I2C_DEV_ATTR_SHOW_DEFAULT, I2C_DEV_ATTR_STORE_DEFAULT, 0x84, 0, 1 },
+    { "sysled-sys-blink", NULL, I2C_DEV_ATTR_SHOW_DEFAULT, I2C_DEV_ATTR_STORE_DEFAULT, 0x84, 2, 1 },
+    { "sysled-fan-green-trigger", NULL, I2C_DEV_ATTR_SHOW_DEFAULT, I2C_DEV_ATTR_STORE_DEFAULT, 0x88, 1, 1 },
+    { "sysled-fan-red-trigger", NULL, I2C_DEV_ATTR_SHOW_DEFAULT, I2C_DEV_ATTR_STORE_DEFAULT, 0x88, 0, 1 },
+    { "sysled-fan-blink", NULL, I2C_DEV_ATTR_SHOW_DEFAULT, I2C_DEV_ATTR_STORE_DEFAULT, 0x88, 2, 1 },
+    { "sysled-power-green-trigger", NULL, I2C_DEV_ATTR_SHOW_DEFAULT, I2C_DEV_ATTR_STORE_DEFAULT, 0x8c, 1, 1 },
+    { "sysled-power-red-trigger", NULL, I2C_DEV_ATTR_SHOW_DEFAULT, I2C_DEV_ATTR_STORE_DEFAULT, 0x8c, 0, 1 },
+    { "sysled-power-blink", NULL, I2C_DEV_ATTR_SHOW_DEFAULT, I2C_DEV_ATTR_STORE_DEFAULT, 0x8c, 2, 1 },
+    { "sysled-id1-blue-trigger", NULL, I2C_DEV_ATTR_SHOW_DEFAULT, I2C_DEV_ATTR_STORE_DEFAULT, 0x90, 0, 1 },
+    { "sysled-id1-green-trigger", NULL, I2C_DEV_ATTR_SHOW_DEFAULT, I2C_DEV_ATTR_STORE_DEFAULT, 0x90, 1, 1 },
+    { "sysled-id1-blink", NULL, I2C_DEV_ATTR_SHOW_DEFAULT, I2C_DEV_ATTR_STORE_DEFAULT, 0x90, 2, 1 },
+    { "thermal-int", NULL, I2C_DEV_ATTR_SHOW_DEFAULT, I2C_DEV_ATTR_STORE_DEFAULT, 0x68, 3, 1 },
+    { "port-cpld1-int", NULL, I2C_DEV_ATTR_SHOW_DEFAULT, I2C_DEV_ATTR_STORE_DEFAULT, 0x68, 5, 1 },
+    { "port-cpld2-int", NULL, I2C_DEV_ATTR_SHOW_DEFAULT, I2C_DEV_ATTR_STORE_DEFAULT, 0x68, 9, 1 },
+    { "fp-push-btn-short", NULL, I2C_DEV_ATTR_SHOW_DEFAULT, I2C_DEV_ATTR_STORE_DEFAULT, 0x68, 1, 1 },
+    { "fp-push-btn-long", NULL, I2C_DEV_ATTR_SHOW_DEFAULT, I2C_DEV_ATTR_STORE_DEFAULT, 0x68, 0, 1 },
+    { "sys-fpga-int-clean", NULL, I2C_DEV_ATTR_SHOW_DEFAULT, I2C_DEV_ATTR_STORE_DEFAULT, 0x60, 0, 1 },
+    { "fandrawer_led_trigger", NULL, I2C_DEV_ATTR_SHOW_DEFAULT, I2C_DEV_ATTR_STORE_DEFAULT, 0xA0, 0, 32 },
+    { "bmc-mon-trigger", NULL, I2C_DEV_ATTR_SHOW_DEFAULT, I2C_DEV_ATTR_STORE_DEFAULT, 0x24, 0, 32 },
+};

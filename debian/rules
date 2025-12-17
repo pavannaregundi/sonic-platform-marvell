@@ -8,25 +8,28 @@ include /usr/share/dpkg/pkg-info.mk
 
 export INSTALL_MOD_DIR:=extra
 
-PYTHON3         ?= python3
-
 PACKAGE_PRE_NAME := sonic-platform-marvell
 KVERSION   ?= $(shell uname -r)
 KERNEL_SRC :=  /lib/modules/$(KVERSION)
 MOD_SRC_DIR:= $(shell pwd)
-MODULE_DIRS:= dbmvtx9180
+MODULE_DIRS:= dbmvtx9180 d64p512t
+MODULE_DIR := modules
 SERVICE_DIR := service
-PLATFORM_DIR := sonic_platform
 
 %:
 	dh $@ --with python3 --buildsystem=pybuild --pybuild-system=setuptools
 
 override_dh_auto_clean:
 	(for mod in $(MODULE_DIRS); do \
-		make clean -C $(KERNEL_SRC)/build M=$(MOD_SRC_DIR)/$${mod}/modules; \
+		if [ -d "$(MOD_SRC_DIR)/$${mod}/$(MODULE_DIR)" ]; then \
+			make clean -C $(KERNEL_SRC)/build M=$(MOD_SRC_DIR)/$${mod}/$(MODULE_DIR); \
+		fi; \
 		if [ -f $(MOD_SRC_DIR)/$${mod}/setup.py ]; then \
 			pybuild --clean -d $${mod}; \
 		fi; \
+		rm -f $(MOD_SRC_DIR)/$${mod}/*.whl; \
+		rm -rf $(MOD_SRC_DIR)/$${mod}/build; \
+		rm -rf $(MOD_SRC_DIR)/$${mod}/*.egg-info; \
 	done)
 	dh_clean
 
@@ -39,7 +42,9 @@ override_dh_auto_configure:
 
 override_dh_auto_build:
 	(for mod in $(MODULE_DIRS); do \
-		make modules -C $(KERNEL_SRC)/build M=$(MOD_SRC_DIR)/$${mod}/modules; \
+		if [ -d "$(MOD_SRC_DIR)/$${mod}/$(MODULE_DIR)" ]; then \
+			make modules -C $(KERNEL_SRC)/build M=$(MOD_SRC_DIR)/$${mod}/$(MODULE_DIR) || exit 1; \
+		fi; \
 		cd $(MOD_SRC_DIR)/$${mod}; \
 		if [ -f setup.py ]; then \
 			python3 setup.py bdist_wheel -d $(MOD_SRC_DIR)/$${mod}; \
@@ -57,8 +62,12 @@ override_dh_usrlocal:
 override_dh_auto_install:
 	# Custom package commands
 	(set -e; for mod in $(MODULE_DIRS); do \
+		dh_installdirs -p$(PACKAGE_PRE_NAME)-$${mod} $(KERNEL_SRC)/$(INSTALL_MOD_DIR); \
 		dh_installdirs -p$(PACKAGE_PRE_NAME)-$${mod} /usr/local/bin; \
 		dh_installdirs -p$(PACKAGE_PRE_NAME)-$${mod} lib/systemd/system; \
+		if [ -d "$(MOD_SRC_DIR)/$${mod}/$(MODULE_DIR)" ] && ls $(MOD_SRC_DIR)/$${mod}/$(MODULE_DIR)/*.ko >/dev/null 2>&1; then \
+			cp $(MOD_SRC_DIR)/$${mod}/$(MODULE_DIR)/*.ko debian/$(PACKAGE_PRE_NAME)-$${mod}$(KERNEL_SRC)/$(INSTALL_MOD_DIR)/; \
+		fi; \
 		cp $(MOD_SRC_DIR)/$${mod}/$(SERVICE_DIR)/*.service debian/$(PACKAGE_PRE_NAME)-$${mod}/lib/systemd/system/; \
 		if [ -f $(MOD_SRC_DIR)/$${mod}/setup.py ]; then \
 			PYBUILD_NAME=$${mod} pybuild --install -d $${mod} --dest-dir $(MOD_SRC_DIR)/debian/$(PACKAGE_PRE_NAME)-$${mod}; \

@@ -1,0 +1,12 @@
+chmod a+x /usr/local/bin/d64p512t-ja.sh
+chmod a+x /usr/local/bin/d64p512t-retimer.sh
+chmod a+x /usr/local/bin/post_pddf_init.sh
+chmod a+x /usr/local/bin/pddf_pre_driver_install.sh
+chmod a+x /usr/local/bin/bmc_mon.sh
+depmod -a
+systemctl restart kmod
+systemctl enable pddf-platform-init.service
+systemctl start pddf-platform-init.service
+systemctl enable bmc-mon.service
+find /var/lib/docker/overlay*/ -path */sbin/fancontrol -exec cp /usr/local/bin/fancontrol {} \;
+exit 0

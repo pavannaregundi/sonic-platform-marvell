@@ -1,0 +1,391 @@
+#!/bin/bash
+#
+# Simple script implementing a temperature dependent fan speed control
+# Supported Linux kernel versions: 2.6.5 and later
+#
+# Version 0.70
+#
+# Usage: fancontrol [CONFIGFILE]
+#
+# Dependencies:
+#   bash, egrep, sed, cut, sleep, readlink, lm_sensors :)
+#
+# Please send any questions, comments or success stories to
+# marius.reiner@hdev.de
+# Thanks!
+#
+# For configuration instructions and warnings please see fancontrol.txt, which
+# can be found in the doc/ directory or at the website mentioned above.
+#
+#
+#    Copyright 2003 Marius Reiner <marius.reiner@hdev.de>
+#    Copyright (C) 2007-2009 Jean Delvare <khali@linux-fr.org>
+#
+#    This program is free software; you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation; either version 2 of the License, or
+#    (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with this program; if not, write to the Free Software
+#    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+#    MA 02110-1301 USA.
+#
+#
+
+PIDFILE="/var/run/fancontrol.pid"
+
+#DEBUG=1
+MAX=255
+
+# Parse this string to get the maximum count
+# Example: value=$(get_element_count "a b c") = 3
+get_element_count()
+{
+    Index=0
+    while :
+    do
+        Index=$(( $Index+1 ))
+        Value=$( echo ${1} | cut -d" " -f $Index )
+        if [ "x${Value}" == "x" ] ; then
+            Index=$(( $Index-1 ))
+            break
+        fi
+    done
+
+    echo "$Index"
+}
+
+# Loading configuration
+function LoadConfig
+{
+    echo "Loading configuration from $1 ..."
+    if [ ! -r "$1" ]
+    then
+        echo "Error: Can't read configuration file" >&2
+        exit 1
+    fi
+
+    # grep configuration from file
+    INTERVAL=`egrep '^INTERVAL=.*$' $1 | sed -e 's/INTERVAL=//g'`
+
+    # Thermal Sensor Bus:
+    #    Vaild string: 0x0 ~ 0xff
+    TEMPBUS_STR=`egrep '^TEMPBUS=.*$' $1 | sed -e 's/TEMPBUS=//g'`
+
+    # Thermal Sensor Address:
+    #    Vaild string: 0x0 ~ 0xff
+    TEMPADDR_STR=`egrep '^TEMPADDR=.*$' $1 | sed -e 's/TEMPADDR=//g'`
+
+    # FAN Sensor Bus:
+    #    Vaild string: 0x0 ~ 0xff
+    FANBUS_STR=`egrep '^FANBUS=.*$' $1 | sed -e 's/FANBUS=//g'`
+
+    # FAN Sensor Address:
+    #    Vaild string: 0x0 ~ 0xff
+    FANADDR_STR=`egrep '^FANADDR=.*$' $1 | sed -e 's/FANADDR=//g'`
+
+    # FAN Register:
+    # emc2305:
+    #    Vaild string: 0x0 ~ 0xff
+    FANREG_STR=`egrep '^FANREG=.*$' $1 | sed -e 's/FANREG=//g'`
+
+    # FAN Controller Support:
+    # Vaild string: emc2305
+    # emc2305: ipmitool command
+    #    ipmitool raw [IPMI_RAW_ID] [IPMI_RAW_WRITE] [FAN_BUS] [FAN_ADDR] [FAN_REG] [FAN_PWM_VALUE]
+    FAN_CTL_DRV=`egrep '^FAN_CTL_DRV=.*$' $1 | sed -e 's/FAN_CTL_DRV=//g'`
+
+    # Service Command Support: Set
+    # function: UpdateFanSpeeds
+    # ipmitool:
+    #           Vaild string: 0x0 ~ 0xff
+    IPMI_RAW_ID=`egrep '^IPMI_RAW_ID=.*$' $1 | sed -e 's/IPMI_RAW_ID=//g'`
+
+    # Service Command Support: Get
+    # function: UpdateThermalSensors
+    # ipmitool raw [IPMI_RAW_ID] [IPMI_RAW_READ] [TEMP_BUS] [TEMP_ADDR] 0x0 1
+
+    # IPMITOOL Raw Command: Read
+    # Vaild string: 0x0 ~ 0xff (If this IPMI_RAW_ID isn't an empty string)
+    IPMI_RAW_READ=`egrep '^IPMI_RAW_READ=.*$' $1 | sed -e 's/IPMI_RAW_READ=//g'`
+
+    # IPMITOOL Raw Command: Write
+    # Vaild string: 0x0 ~ 0xff (If this IPMI_RAW_ID isn't an empty string)
+    IPMI_RAW_WRITE=`egrep '^IPMI_RAW_WRITE=.*$' $1 | sed -e 's/IPMI_RAW_WRITE=//g'`
+
+    AFCTEMP_1_LOWER=(00 46 50 52 55)
+    AFCTEMP_1_UPPER=(49 51 53 56 150)
+    AFCTEMP_2_LOWER=(00 75 77 80 82)
+    AFCTEMP_2_UPPER=(77 79 81 84 150)
+    AFCTEMP_3_LOWER=(00 67 69 71 74)
+    AFCTEMP_3_UPPER=(69 71 73 76 150)
+    AFCTEMP_4_LOWER=(00 53 55 57 60)
+    AFCTEMP_4_UPPER=(55 57 59 62 150)
+    AFCTEMP_5_LOWER=(00 46 48 51 54)
+    AFCTEMP_5_UPPER=(48 50 53 56 150)
+    AFCTEMP_6_LOWER=(00 45 47 50 53)
+    AFCTEMP_6_UPPER=(47 49 52 55 150)
+    AFCTEMP_7_LOWER=(00 75 78 80 82)
+    AFCTEMP_7_UPPER=(78 80 82 85 150)
+
+    if [ "$INTERVAL" -le 0 ]
+    then
+        echo "Error in configuration file:" >&2
+        echo "INTERVAL must be at least 1" >&2
+        exit 1
+    fi
+
+    # Get the maximum index value of the thermal sensor
+    TEMP_MAXINDEX=$(get_element_count "${TEMPBUS_STR}")
+
+    # Get the maximum index value of the FAN sensor
+    FAN_MAXINDEX=$(get_element_count "${FANBUS_STR}")
+}
+
+if [ "$1" == "--check" ]
+then
+        if [ -f "$2" ]
+        then
+                LoadConfig $2
+        else
+                LoadConfig /etc/fancontrol
+        fi
+        exit 0
+fi
+
+# LoadConfig $1
+if [ -f "$1" ]
+then
+    LoadConfig $1
+else
+    LoadConfig /etc/fancontrol
+fi
+
+if [ -f "$PIDFILE" ]
+then
+    echo "File $PIDFILE exists, is fancontrol already running?" >&2
+    exit 1
+fi
+echo $$ > "$PIDFILE"
+
+# main function
+function fan_pwm_target
+{
+    FAN_SET_VALUE_FILE=/tmp/FanSetValue
+    FAN_PERCENTAGE=${1}
+
+    if (($FAN_PERCENTAGE == 100)); then
+        FAN_PWM_VALUE=255
+    elif (($FAN_PERCENTAGE == 60)); then
+        FAN_PWM_VALUE=153
+    elif (($FAN_PERCENTAGE == 50)); then
+        FAN_PWM_VALUE=128
+    elif (($FAN_PERCENTAGE == 40)); then
+        FAN_PWM_VALUE=102
+    elif (($FAN_PERCENTAGE == 35)); then
+        FAN_PWM_VALUE=89
+    else
+        FAN_PWM_VALUE=153
+    fi
+
+    FAN_SET=1
+    if [ -f ${FAN_SET_VALUE_FILE} ] ; then
+        IS_FAN_SETED=$( cat ${FAN_SET_VALUE_FILE} | grep pwm:${FAN_PWM_VALUE} )
+        if [ "x${IS_FAN_SETED}" != "x" ] ; then
+            # Repeat setting, ignore this setting
+            FAN_SET=0
+        fi
+    fi
+
+    if [ "x${FAN_SET}" == "x1" ] ; then
+
+        FAN_INDEX=${2}
+        FAN_BUS=${3}
+        FAN_DEV_ADDR=${4}
+        FAN_REG=${5}
+
+        hex_value_check=`echo ${FAN_BUS} | grep 0x`
+        if [ "x${hex_value_check}" == "x" ] ; then
+            FAN_BUS_HEX_STR=$( printf "%x" ${FAN_BUS} )
+            FAN_BUS_HEX_VALUE=0x${FAN_BUS_HEX_STR}
+        else
+            FAN_BUS_HEX_VALUE=${FAN_BUS}
+            # ADT7473 (Attribute only)
+            FAN_BUS_HEX_STR=`echo ${FAN_BUS} | awk -F'0x' '{print $2}' | tr a-z A-Z`
+            FAN_BUS=`echo $((0x${FAN_BUS_HEX_STR}))`
+        fi
+
+        hex_value_check=`echo ${FAN_DEV_ADDR} | grep 0x`
+        if [ "x${hex_value_check}" == "x" ] ; then
+            FAN_DEV_ADDR_HEX_VALUE=0x{FAN_DEV_ADDR}
+        else
+            FAN_DEV_ADDR_HEX_VALUE=${FAN_DEV_ADDR}
+            # ADT7473 (Attribute only)
+            FAN_DEV_ADDR_HEX_STR=`echo ${FAN_DEV_ADDR} | awk -F'0x' '{print $2}'`
+            FAN_DEV_ADDR=00${FAN_DEV_ADDR_HEX_STR}
+        fi
+
+        echo "FAN set: FAN$FAN_INDEX Set Percentage (${FAN_PERCENTAGE}%)"
+
+        IS_PWM_REG=$( echo ${FAN_REG} | grep pwm )
+        if [ "x${IS_PWM_REG}" != "x" ] ; then
+            SET_STR1="ATTR:"
+            SET_STR2=""
+        else
+            SET_STR1="REG:"
+            SET_STR2="PWM:"
+
+            hex_value_check=`echo ${FAN_REG} | grep 0x`
+            if [ "x${hex_value_check}" == "x" ] ; then
+                 FAN_REG_HEX_VALUE=0x${FAN_REG}
+            else
+                 FAN_REG_HEX_VALUE=${FAN_REG}
+            fi
+        fi
+
+        FAN_PWM_HEX_STR=$( printf "%x" ${FAN_PWM_VALUE} )
+        FAN_PWM_HEX_VALUE=0x${FAN_PWM_HEX_STR}
+
+        echo "FAN set: FAN$FAN_INDEX Set ${SET_STR1}${FAN_REG} (${SET_STR2}${FAN_PWM_VALUE})"
+
+        if [ "x${FAN_MAXINDEX}" == "x${FAN_INDEX}" ] ; then
+            echo pwm:${FAN_PWM_VALUE} > ${FAN_SET_VALUE_FILE}
+        fi
+
+        case "${FAN_CTL_DRV}" in
+            emc2305)
+                # EMC2305
+                ipmitool raw ${IPMI_RAW_ID} ${IPMI_RAW_WRITE} ${FAN_BUS_HEX_VALUE} ${FAN_DEV_ADDR_HEX_VALUE} ${FAN_REG_HEX_VALUE} ${FAN_PWM_HEX_VALUE}
+                ;;
+            *)
+                echo "No FAN controller support! (${FAN_CTL_DRV})"
+                rm -rf ${FAN_SET_VALUE_FILE}
+                ;;
+        esac
+    fi
+}
+
+function UpdateThermalSensors
+{
+    # Get temperature from each thermal sensor
+    tempIndex=1
+    while [ $tempIndex -le ${TEMP_MAXINDEX} ]
+    do
+        TEMP_BUS=$( echo ${TEMPBUS_STR} | cut -d" " -f $tempIndex )
+        TEMP_ADDR=$( echo ${TEMPADDR_STR} | cut -d" " -f $tempIndex )
+
+        Value=$(ipmitool raw ${IPMI_RAW_ID} ${IPMI_RAW_READ} ${TEMP_BUS} ${TEMP_ADDR} 0x0 1 | cut -c2-3)
+        Temp=$( echo $((0x${Value})) )
+
+        AFCTEMP[$tempIndex]=$( echo ${Temp} )
+
+        tempIndex=$(( $tempIndex+1 ))
+    done
+}
+
+function UpdateThermalLevel
+{
+    AFCTEMP_NUM=$((5-${AFCTEMP_LEVEL[$i]}))
+    AFCTEMP_UPPER_BUF=AFCTEMP_"$i"_UPPER["$AFCTEMP_NUM"]
+    AFCTEMP_LOWER_BUF=AFCTEMP_"$i"_LOWER["$AFCTEMP_NUM"]
+
+    AFCTEMP_UPPER=${!AFCTEMP_UPPER_BUF}
+    AFCTEMP_LOWER=${!AFCTEMP_LOWER_BUF}
+
+    if (( ("${AFCTEMP[$i]}" <= "$AFCTEMP_UPPER") && ("${AFCTEMP[$i]}" >= "$AFCTEMP_LOWER") )) ; then
+        FLAG=2
+    elif (( "${AFCTEMP[$i]}" > "$AFCTEMP_UPPER" )); then
+        AFCTEMP_LEVEL[$i]=$((${AFCTEMP_LEVEL[$i]} - 1))
+        FLAG=1
+    else
+        AFCTEMP_LEVEL[$i]=$((${AFCTEMP_LEVEL[$i]} + 1))
+        FLAG=1
+    fi
+}
+
+# sonic-mgmt
+# Fix test_pmon_fancontrol_term_and_start_status of platform_tests/daemon/test_fancontrol.py
+function restorefans
+{
+    local status=$1
+
+    rm -f "$PIDFILE"
+
+    echo 'Aborting, restoring fans...'
+    exit $status
+}
+
+trap 'restorefans 0' SIGQUIT SIGTERM
+trap 'restorefans 1' SIGHUP SIGINT
+
+function UpdateFanSpeeds
+{
+    #echo "num tmp lev  F   L   H"
+    # Update level
+    for ((i=1;i<=${TEMP_MAXINDEX};i++))
+    do
+        #echo "----------------------"
+        FLAG=0
+        #FLAG=0 : initial flag
+        #FLAG=1 : update level
+        #FLAG=2 : final level
+        while [ $FLAG -ne 2 ]
+        do
+            UpdateThermalLevel
+            #echo " $i  ${AFCTEMP[$i]}   ${AFCTEMP_LEVEL[$i]}   ${FLAG}  ${AFCTEMP_LOWER}  ${AFCTEMP_UPPER} "
+        done
+    done
+
+    min=${AFCTEMP_LEVEL[0]}
+    for j in "${AFCTEMP_LEVEL[@]}"; do
+      (( j < min )) && min=$j
+    done
+
+    if (($min == 1)); then
+        FAN_PERCENTAGE=100
+    elif (($min == 2)); then
+        FAN_PERCENTAGE=60
+    elif (($min == 3)); then
+        FAN_PERCENTAGE=50
+    elif (($min == 4)); then
+        FAN_PERCENTAGE=40
+    elif (($min == 5)); then
+        FAN_PERCENTAGE=35
+    else
+        FAN_PERCENTAGE=100
+    fi
+    #echo "The lowest level of thermal sensors: ${min}. Trying to set fan speed to ${FAN_PERCENTAGE} %"
+
+    # Set speed to each fan
+    fanIndex=1
+    while [ $fanIndex -le ${FAN_MAXINDEX} ]
+    do
+        FAN_BUS=$( echo ${FANBUS_STR} | cut -d" " -f $fanIndex )
+        FAN_ADDR=$( echo ${FANADDR_STR} | cut -d" " -f $fanIndex )
+        FAN_REG=$( echo ${FANREG_STR} | cut -d" " -f $fanIndex )
+
+        fan_pwm_target ${FAN_PERCENTAGE} ${fanIndex} ${FAN_BUS} ${FAN_ADDR} ${FAN_REG}
+
+        fanIndex=$(( $fanIndex+1 ))
+    done
+}
+
+# main loop calling the main function at specified intervals
+AFCTEMP_LEVEL=(9 5 5 5 5 5 5 5) # initial level
+while true
+do
+    if [ ! -f /tmp/thermal_control_disable ]; then
+        UpdateThermalSensors
+        UpdateFanSpeeds
+    fi
+
+    # Sleep while still handling signals
+    sleep $INTERVAL &
+    wait $!
+done

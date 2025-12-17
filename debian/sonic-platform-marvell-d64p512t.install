@@ -1,0 +1,9 @@
+d64p512t/scripts/pddf_pre_driver_install.sh usr/local/bin
+d64p512t/scripts/post_pddf_init.sh usr/local/bin/
+d64p512t/scripts/bmc_mon.sh usr/local/bin/
+d64p512t/scripts/d64p512t-retimer.sh  usr/local/bin
+d64p512t/scripts/d64p512t-ja.sh  usr/local/bin
+d64p512t/scripts/fancontrol usr/local/bin
+d64p512t/cfg/d64p512t.conf etc/modules-load.d
+d64p512t/cfg/d64p512t_params.conf etc/modprobe.d
+d64p512t/sonic_platform-1.0-py3-none-any.whl usr/share/sonic/device/x86_64-marvell_d64p512t-r0/pddf
