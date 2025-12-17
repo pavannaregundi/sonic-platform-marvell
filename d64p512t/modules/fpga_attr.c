@@ -96,7 +96,7 @@ static ssize_t d64p512t_fpga_reg_store(struct device *dev,
 
 }
 
-int fpga_attr_create(void)
+static int fpga_attr_create(void)
 {
     fpga_sysfs_attr_st *fpga_container;
     int i;

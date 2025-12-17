@@ -2,6 +2,7 @@
 #include <linux/kernel.h>
 #include <linux/stddef.h>
 #include <linux/i2c.h>
+#include <linux/version.h>
 #include "fpga.h"
 #include "fpga_attr.h"
 #include "fpga_gpio.h"
@@ -100,8 +101,6 @@ static s32 d64p512t_fpga_i2c_access(struct i2c_adapter *adap, u16 addr,
 
         break;
     case I2C_SMBUS_BYTE_DATA:
-        if ((void *)(&data->byte) == NULL)
-            return -1;
         if (read_write == I2C_SMBUS_WRITE)
         {
             rv = d64p512t_fpga_i2c_write(i2c, addr, command, 1, &data->byte, 1);
@@ -114,8 +113,6 @@ static s32 d64p512t_fpga_i2c_access(struct i2c_adapter *adap, u16 addr,
         }
         break;
     case I2C_SMBUS_WORD_DATA:
-        if (&data->word == NULL)
-            return -1;
         if (read_write == I2C_SMBUS_WRITE)
         {
             /* TODO: not verify */
@@ -131,8 +128,6 @@ static s32 d64p512t_fpga_i2c_access(struct i2c_adapter *adap, u16 addr,
         break;
 
     case I2C_SMBUS_BLOCK_DATA:
-        if (&data->block[1] == NULL)
-            return -1;
         if (read_write == I2C_SMBUS_WRITE)
         {
 
@@ -150,8 +145,6 @@ static s32 d64p512t_fpga_i2c_access(struct i2c_adapter *adap, u16 addr,
         }
         break;
     case I2C_SMBUS_I2C_BLOCK_DATA:
-        if (&data->block[1] == NULL)
-            return -1;
         if (read_write == I2C_SMBUS_WRITE)
         {
             len = min_t(u8, data->block[0], I2C_SMBUS_BLOCK_MAX);
@@ -490,7 +483,11 @@ int i2c_adapter_init(struct pci_dev *dev, struct fpga_dev *fpga)
         (fpga->i2c + bus)->adapter.owner = THIS_MODULE;
         snprintf((fpga->i2c + bus)->adapter.name, sizeof((fpga->i2c + bus)->adapter.name),
                 fpga_i2c_info[i].name, i);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0)
+        (fpga->i2c + bus)->adapter.class = I2C_CLASS_HWMON;
+#else
         (fpga->i2c + bus)->adapter.class = I2C_CLASS_HWMON | I2C_CLASS_SPD;
+#endif
         (fpga->i2c + bus)->adapter.algo = &smbus_algorithm;
         (fpga->i2c + bus)->adapter.algo_data = fpga->i2c + bus;
         /* set up the sysfs linkage to our parent device */
@@ -524,7 +521,11 @@ int i2c_adapter_init(struct pci_dev *dev, struct fpga_dev *fpga)
                 (fpga->i2c + bus)->adapter.owner = THIS_MODULE;
                 snprintf((fpga->i2c + bus)->adapter.name, sizeof((fpga->i2c + bus)->adapter.name),
                         fpga_i2c_info[i].name, i, j);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0)
+                (fpga->i2c + bus)->adapter.class = I2C_CLASS_HWMON;
+#else
                 (fpga->i2c + bus)->adapter.class = I2C_CLASS_HWMON | I2C_CLASS_SPD;
+#endif
                 (fpga->i2c + bus)->adapter.algo = &smbus_algorithm;
                 (fpga->i2c + bus)->adapter.algo_data = fpga->i2c + bus;
                 /* set up the sysfs linkage to our parent device */

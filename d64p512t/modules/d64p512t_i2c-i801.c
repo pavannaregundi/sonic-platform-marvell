@@ -103,6 +103,7 @@
 #include <linux/string.h>
 #include <linux/wait.h>
 #include <linux/err.h>
+#include <linux/version.h>
 #include <linux/platform_device.h>
 #include <linux/platform_data/itco_wdt.h>
 #include <linux/pm_runtime.h>
@@ -1144,7 +1145,11 @@ static void dmi_check_onboard_device(u8 type, const char *name,
 
 		memset(&info, 0, sizeof(struct i2c_board_info));
 		info.addr = dmi_devices[i].i2c_addr;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+		strscpy(info.type, dmi_devices[i].i2c_type, I2C_NAME_SIZE);
+#else
 		strlcpy(info.type, dmi_devices[i].i2c_type, I2C_NAME_SIZE);
+#endif
 		i2c_new_client_device(adap, &info);
 		break;
 	}
@@ -1299,7 +1304,11 @@ static void register_dell_lis3lv02d_i2c_device(struct i801_priv *priv)
 
 	memset(&info, 0, sizeof(struct i2c_board_info));
 	info.addr = dell_lis3lv02d_devices[i].i2c_addr;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+	strscpy(info.type, "lis3lv02d", I2C_NAME_SIZE);
+#else
 	strlcpy(info.type, "lis3lv02d", I2C_NAME_SIZE);
+#endif
 	i2c_new_client_device(&priv->adapter, &info);
 }
 
@@ -1315,7 +1324,11 @@ static void i801_probe_optional_slaves(struct i801_priv *priv)
 
 		memset(&info, 0, sizeof(struct i2c_board_info));
 		info.addr = apanel_addr;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+		strscpy(info.type, "fujitsu_apanel", I2C_NAME_SIZE);
+#else
 		strlcpy(info.type, "fujitsu_apanel", I2C_NAME_SIZE);
+#endif
 		i2c_new_client_device(&priv->adapter, &info);
 	}
 
@@ -1343,7 +1356,11 @@ static struct i801_mux_config i801_mux_config_asus_z8_d12 = {
 	.gpio_chip = "gpio_ich",
 	.values = { 0x02, 0x03 },
 	.n_values = 2,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 2, 0)
 	.classes = { I2C_CLASS_SPD, I2C_CLASS_SPD },
+#else
+	.classes = { I2C_CLASS_HWMON, I2C_CLASS_HWMON },
+#endif
 	.gpios = { 52, 53 },
 	.n_gpios = 2,
 };
@@ -1352,7 +1369,11 @@ static struct i801_mux_config i801_mux_config_asus_z8_d18 = {
 	.gpio_chip = "gpio_ich",
 	.values = { 0x02, 0x03, 0x01 },
 	.n_values = 3,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 2, 0)
 	.classes = { I2C_CLASS_SPD, I2C_CLASS_SPD, I2C_CLASS_SPD },
+#else
+	.classes = { I2C_CLASS_HWMON, I2C_CLASS_HWMON, I2C_CLASS_HWMON },
+#endif
 	.gpios = { 52, 53 },
 	.n_gpios = 2,
 };
@@ -1442,7 +1463,9 @@ static int i801_add_mux(struct i801_priv *priv)
 	gpio_data.parent = priv->adapter.nr;
 	gpio_data.values = mux_config->values;
 	gpio_data.n_values = mux_config->n_values;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 7, 0)
 	gpio_data.classes = mux_config->classes;
+#endif
 	gpio_data.idle = I2C_MUX_GPIO_NO_IDLE;
 
 	/* Register GPIO descriptor lookup table */
@@ -1493,7 +1516,11 @@ static unsigned int i801_get_adapter_class(struct i801_priv *priv)
 {
 	const struct dmi_system_id *id;
 	const struct i801_mux_config *mux_config;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0)
+	unsigned int class = I2C_CLASS_HWMON;
+#else
 	unsigned int class = I2C_CLASS_HWMON | I2C_CLASS_SPD;
+#endif
 	int i;
 
 	id = dmi_first_match(mux_dmi_table);

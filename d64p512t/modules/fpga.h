@@ -20,6 +20,10 @@
 #include <linux/semaphore.h>
 #include <linux/uaccess.h>
 #include <linux/gpio.h>
+#include <linux/version.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 5, 0)
+#include <linux/gpio/driver.h>
+#endif
 #include <linux/mutex.h>
 
 #define FPGA_I2C_BUSNUM 5

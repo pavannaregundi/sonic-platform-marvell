@@ -10,7 +10,7 @@ export INSTALL_MOD_DIR:=extra
 
 PACKAGE_PRE_NAME := sonic-platform-marvell
 KVERSION   ?= $(shell uname -r)
-KERNEL_SRC :=  /lib/modules/$(KVERSION)
+export KERNEL_SRC :=  /lib/modules/$(KVERSION)
 MOD_SRC_DIR:= $(shell pwd)
 MODULE_DIRS:= dbmvtx9180 d64p512t
 MODULE_DIR := modules

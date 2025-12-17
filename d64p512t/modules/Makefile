@@ -5,4 +5,11 @@ obj-m := $(FPGA_MODULE_NAME).o d64p512t_i2c-i801.o \
          pddf_custom_sysstatus_module.o
 
 CFLAGS_pddf_custom_sysstatus_module.o := -I$(M)/../../../../pddf/i2c/modules/include
+
+VERSION_GE_6_12 := $(shell echo $(KERNELRELEASE) | awk -F. '{ printf("%d", ($$1 > 6 || ($$1 == 6 && $$2 >= 12))) }')
+
+ifeq ($(VERSION_GE_6_12),1)
+KBUILD_EXTRA_SYMBOLS := $(KERNEL_SRC)/Module.symvers.PDDF
+else
 KBUILD_EXTRA_SYMBOLS := $(M)/../../../../pddf/i2c/Module.symvers.PDDF
+endif

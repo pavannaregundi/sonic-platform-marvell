@@ -23,6 +23,9 @@ SYSSTATUS_DATA sysstatus_data = {0};
 extern int board_i2c_cpld_read(unsigned short cpld_addr, u8 reg);
 extern int board_i2c_cpld_write(unsigned short cpld_addr, u8 reg, u8 value);
 
+int __init sysstatus_data_init(void);
+void __exit sysstatus_data_exit(void);
+
 static ssize_t do_attr_operation(struct device *dev, struct device_attribute *da, const char *buf, size_t count);
 ssize_t show_sysstatus_data(struct device *dev, struct device_attribute *da, char *buf);
 ssize_t store_sysstatus_data(struct device *dev, struct device_attribute *da, const char *buf, size_t count);
