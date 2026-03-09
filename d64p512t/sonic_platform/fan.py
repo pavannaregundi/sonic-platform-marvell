@@ -6,6 +6,7 @@ try:
     from sonic_platform_pddf_base.pddf_fan import PddfFan
     from sonic_platform.psu_fru import PsuFru
     from sonic_py_common.general import getstatusoutput_noshell, getstatusoutput_noshell_pipe
+    from . import utils
 except ImportError as e:
     raise ImportError(str(e) + "- required module not found")
 
@@ -20,15 +21,6 @@ STATUS_NA = "N/A"
 
 class Fan(PddfFan):
     """PDDF Platform-Specific Fan class"""
-
-    def isDockerEnv(self):
-        num_docker = 0
-        with open('/proc/self/cgroup', 'r') as f:
-            num_docker = f.read().count(":/docker")
-        if num_docker > 0:
-            return True
-        else:
-            return False
 
     def __init__(self, tray_idx, fan_idx=0, pddf_data=None, pddf_plugin_data=None, is_psu_fan=False, psu_index=0):
         # idx is 0-based
@@ -80,7 +72,7 @@ class Fan(PddfFan):
             return STATUS_NA
 
         command = ""
-        if self.isDockerEnv():
+        if utils.isDockerEnv():
             command = ("ipmitool fru print {} | grep 'Product Part Number' | awk -F' ' '{{print $5}}'").format(self.tray_idx+1)
         else:
             command = ("sudo ipmitool fru print {} | grep 'Product Part Number' | awk -F' ' '{{print $5}}'").format(self.tray_idx+1)
@@ -108,7 +100,7 @@ class Fan(PddfFan):
             return STATUS_NA
 
         command = ""
-        if self.isDockerEnv():
+        if utils.isDockerEnv():
             command = ("ipmitool fru print {} | grep 'Product Serial' | awk -F' ' '{{print $4}}'").format(self.tray_idx+1)
         else:
             command = ("sudo ipmitool fru print {} | grep 'Product Serial' | awk -F' ' '{{print $4}}'").format(self.tray_idx+1)
@@ -274,7 +266,7 @@ class Fan(PddfFan):
 
             # IPMI Command Format : ipmitool raw [raw_id] [raw_act] [dev_bus] [dev_addr] [reg_offset] [reg_data]
             command = ""
-            if self.isDockerEnv():
+            if utils.isDockerEnv():
                 command = "ipmitool raw {} {} {} {} {} {}".format(raw_id, raw_act, dev_bus, dev_addr, reg_offset, reg_data)
             else:
                 command = "sudo ipmitool raw {} {} {} {} {} {}".format(raw_id, raw_act, dev_bus, dev_addr, reg_offset, reg_data)

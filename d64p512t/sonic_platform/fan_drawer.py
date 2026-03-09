@@ -20,15 +20,6 @@ class FanDrawer(PddfFanDrawer):
                                    2,
                                    3,
                                    4]
-    def isDockerEnv(self):
-        num_docker = 0
-        with open('/proc/self/cgroup', 'r') as f:
-            num_docker = f.read().count(":/docker")
-        if num_docker > 0:
-            return True
-        else:
-            return False
-
     # Provide the functions/variables below for which implementation is to be overwritten
     def get_model(self):
         """

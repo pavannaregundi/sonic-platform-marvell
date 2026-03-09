@@ -20,6 +20,9 @@ except ImportError as e:
 BIOS_VERSION_PATH = "/sys/class/dmi/id/bios_version"
 SYSSTATUS_FILE_PATH = "/sys/kernel/pddf/devices/sysstatus/sysstatus_data/"
 CHASSIS_STATUS_FILE_PATH = "/sys/kernel/d64p512t_fpga/"
+SSD_FW_VERSION_FILE_PATH = "/sys/block/nvme0n1/device/"
+SYSLOG_IDENTIFIER = "chassis"
+sonic_logger=logger.Logger(SYSLOG_IDENTIFIER)
 
 COMPONENT_LIST= [
    ("BIOS", "Performs initialization of hardware components during booting"),
@@ -34,15 +37,6 @@ COMPONENT_LIST= [
 class Component(ComponentBase):
     """Platform-specific Component class"""
     DEVICE_TYPE = "component"
-
-    def isDockerEnv(self):
-        num_docker = 0
-        with open('/proc/self/cgroup', 'r') as f:
-            num_docker = f.read().count(":/docker")
-        if num_docker > 0:
-            return True
-        else:
-            return False
 
     def __init__(self, component_index=0):
         self.index = component_index
@@ -65,7 +59,7 @@ class Component(ComponentBase):
 
     def _get_bmc_version(self):
         # BMC component firmware version
-        if self.isDockerEnv():
+        if utils.isDockerEnv():
             return subprocess.check_output(['ipmitool', 'raw', '0x32', '0x8f', '0x08', '0x01']).decode('utf-8').strip()
         else:
             return subprocess.check_output(['sudo', 'ipmitool', 'raw', '0x32', '0x8f', '0x08', '0x01']).decode('utf-8').strip()
@@ -86,18 +80,9 @@ class Component(ComponentBase):
         return hex(reg_val)
 
     def _get_ssd_version(self):
-        val = 'NA'
-        try:
-            ssd_ver = subprocess.check_output(['ssdutil', '-v'],
-                                              stderr=subprocess.STDOUT, text=True)
-        except (FileNotFoundError, subprocess.CalledProcessError):
-            pass
-        else:
-            version = re.search(r'Firmware\s*:(.*)',ssd_ver)
-            if version:
-                val = version.group(1).strip()
-
-        return val
+        file_path = SSD_FW_VERSION_FILE_PATH + 'firmware_rev'
+        fw_version = utils.fread_str(file_path, 'NA').strip()
+        return fw_version or 'NA'
 
     def get_name(self):
         """
@@ -122,7 +107,6 @@ class Component(ComponentBase):
             string: The firmware versions of the module
         """
         fw_version = None
-
         if self.name == "BIOS":
             fw_version = self._get_bios_version()
         elif "SysFPGA" in self.name:

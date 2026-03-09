@@ -2,6 +2,7 @@
 Basic utility funtions
 """
 
+import os
 from sonic_py_common import device_info
 from sonic_py_common.logger import Logger
 
@@ -60,3 +61,25 @@ def fwrite(file_path, value, default=0, raise_exception=False, log_func=logger.l
             raise e
 
     return bytes_written
+
+def isDockerEnv():
+    # Check for the special file created by Docker
+    if os.path.exists("/.dockerenv"):
+        return True
+
+    # Check cgroup info for docker references
+    try:
+        with open('/proc/1/cgroup', 'r') as f:
+            num_docker = f.read().count(":/docker")
+            if num_docker > 0:
+                return True
+            else:
+                return False
+    except FileNotFoundError:
+        # /proc/1/cgroup not found (unlikely, but safe to handle)
+        logger.log_error("Error: /proc/1/cgroup file not found.")
+        return False
+    except Exception as e:
+        # Catch any other unexpected errors
+        logger.log_error(f"Error reading /proc/1/cgroup: {e}")
+        return False

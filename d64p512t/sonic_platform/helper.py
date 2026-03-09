@@ -3,6 +3,7 @@ import struct
 import subprocess
 from mmap import *
 from sonic_py_common import device_info
+from .utils import isDockerEnv
 
 HOST_CHK_CMD = "docker > /dev/null 2>&1"
 EMPTY_STRING = ""
@@ -12,15 +13,6 @@ class APIHelper():
 
     def __init__(self):
         (self.platform, self.hwsku) = device_info.get_platform_and_hwsku()
-
-    def isDockerEnv(self):
-        num_docker = 0
-        with open('/proc/self/cgroup', 'r') as f:
-            num_docker = f.read().count(":/docker")
-        if num_docker > 0:
-            return True
-        else:
-            return False
 
     def is_host(self):
         return os.system(HOST_CHK_CMD) == 0
@@ -80,7 +72,7 @@ class APIHelper():
         result = ""
         cmd = ""
 
-        if self.isDockerEnv():
+        if isDockerEnv():
             cmd = "ipmitool raw {} {}".format(str(netfn), str(cmd))
         else:
             cmd = "sudo ipmitool raw {} {}".format(str(netfn), str(cmd))
@@ -102,7 +94,7 @@ class APIHelper():
         result = ""
         cmd = ""
 
-        if self.isDockerEnv():
+        if isDockerEnv():
             cmd = "ipmitool fru print {}".format(str(id)) if not key else "ipmitool fru print {0} | grep '{1}' ".format(str(id), str(key))
         else:
             cmd = "sudo ipmitool fru print {}".format(str(id)) if not key else "ipmitool fru print {0} | grep '{1}' ".format(str(id), str(key))
@@ -124,7 +116,7 @@ class APIHelper():
         result = ""
         cmd = ""
 
-        if self.isDockerEnv():
+        if isDockerEnv():
             cmd = "ipmitool sensor thresh '{}' {} {}".format(str(id), str(threshold_key), str(value))
         else:
             cmd = "sudo ipmitool sensor thresh '{}' {} {}".format(str(id), str(threshold_key), str(value))
