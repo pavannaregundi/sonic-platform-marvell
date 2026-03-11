@@ -4,6 +4,7 @@
 try:
     from sonic_platform_pddf_base.pddf_thermal import PddfThermal
     from sonic_py_common.general import getstatusoutput_noshell, getstatusoutput_noshell_pipe
+    from . import utils
 except ImportError as e:
     raise ImportError(str(e) + "- required module not found")
 
@@ -25,15 +26,6 @@ class Thermal(PddfThermal):
         PddfThermal.__init__(self, index, pddf_data, pddf_plugin_data, is_psu_thermal, psu_index)
         self.minimum_thermal = self.get_temperature()
         self.maximum_thermal = self.get_temperature()
-
-    def isDockerEnv(self):
-        num_docker = 0
-        with open('/proc/self/cgroup', 'r') as f:
-            num_docker = f.read().count(":/docker")
-        if num_docker > 0:
-            return True
-        else:
-            return False
 
     def get_presence(self):
         """
@@ -83,7 +75,7 @@ class Thermal(PddfThermal):
 
         cmdstatus = 0
         temperature = ""
-        if self.isDockerEnv():
+        if utils.isDockerEnv():
             cmdstatus, temperature = getstatusoutput_noshell(['i2cget', '-f', '-y', str(FPGA_I2C_BUS_NUM), str(FPGA_DEV_ADDR), str(reg_offset)])
         else:
             cmdstatus, temperature = getstatusoutput_noshell(['sudo', 'i2cget', '-f', '-y', str(FPGA_I2C_BUS_NUM), str(FPGA_DEV_ADDR), str(reg_offset)])
@@ -136,7 +128,7 @@ class Thermal(PddfThermal):
         else:
             cmdstatus = 0
             temperature = ""
-            if self.isDockerEnv():
+            if utils.isDockerEnv():
                 cmdstatus, temperature = getstatusoutput_noshell(['i2cget', '-f', '-y', str(FPGA_I2C_BUS_NUM), str(FPGA_DEV_ADDR), str(0x50)])
             else:
                 cmdstatus, temperature = getstatusoutput_noshell(['sudo', 'i2cget', '-f', '-y', str(FPGA_I2C_BUS_NUM), str(FPGA_DEV_ADDR), str(0x50)])
@@ -160,7 +152,7 @@ class Thermal(PddfThermal):
         else:
             cmdstatus = 0
             temperature = ""
-            if self.isDockerEnv():
+            if utils.isDockerEnv():
                 cmdstatus, temperature = getstatusoutput_noshell(['i2cget', '-f', '-y', str(FPGA_I2C_BUS_NUM), str(FPGA_DEV_ADDR), str(0x50)])
             else:
                 cmdstatus, temperature = getstatusoutput_noshell(['sudo', 'i2cget', '-f', '-y', str(FPGA_I2C_BUS_NUM), str(FPGA_DEV_ADDR), str(0x50)])

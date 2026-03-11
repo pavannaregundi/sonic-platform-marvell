@@ -6,6 +6,7 @@ try:
     from sonic_platform_pddf_base.pddf_fan import PddfFan
     from sonic_platform.psu_fru import PsuFru
     from sonic_py_common.general import getstatusoutput_noshell, getstatusoutput_noshell_pipe
+    from . import utils
 except ImportError as e:
     raise ImportError(str(e) + "- required module not found")
 
@@ -24,15 +25,6 @@ class Fan(PddfFan):
     def __init__(self, tray_idx, fan_idx=0, pddf_data=None, pddf_plugin_data=None, is_psu_fan=False, psu_index=0):
         # idx is 0-based
         PddfFan.__init__(self, tray_idx, fan_idx, pddf_data, pddf_plugin_data, is_psu_fan, psu_index)
-
-    def isDockerEnv(self):
-        num_docker = 0
-        with open('/proc/self/cgroup', 'r') as f:
-            num_docker = f.read().count(":/docker")
-        if num_docker > 0:
-            return True
-        else:
-            return False
 
     # Provide the functions/variables below for which implementation is to be overwritten
     # Since psu_fan airflow direction cant be read from sysfs, it is fixed as 'F2B' or 'intake'
@@ -144,7 +136,7 @@ class Fan(PddfFan):
         rpm_0 = 0
         rpm_1 = 0
 
-        if self.isDockerEnv():
+        if utils.isDockerEnv():
             cmdstatus, rpm_0 = getstatusoutput_noshell(['i2cget', '-f', '-y', str(FPGA_I2C_BUS_NUM), str(FPGA_DEV_ADDR), str(reg_offset)])
         else:
             cmdstatus, rpm_0 = getstatusoutput_noshell(['sudo', 'i2cget', '-f', '-y', str(FPGA_I2C_BUS_NUM), str(FPGA_DEV_ADDR), str(reg_offset)])
@@ -155,7 +147,7 @@ class Fan(PddfFan):
             return 0
 
         reg_offset = reg_offset+1
-        if self.isDockerEnv():
+        if utils.isDockerEnv():
             cmdstatus, rpm_1 = getstatusoutput_noshell(['i2cget', '-f', '-y', str(FPGA_I2C_BUS_NUM), str(FPGA_DEV_ADDR), str(reg_offset)])
         else:
             cmdstatus, rpm_1 = getstatusoutput_noshell(['sudo', 'i2cget', '-f', '-y', str(FPGA_I2C_BUS_NUM), str(FPGA_DEV_ADDR), str(reg_offset)])

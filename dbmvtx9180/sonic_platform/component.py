@@ -9,6 +9,7 @@ try:
     import subprocess
     from sonic_platform_base.component_base import ComponentBase
     from sonic_py_common.general import getstatusoutput_noshell, getstatusoutput_noshell_pipe
+    from . import utils
 except ImportError as e:
     raise ImportError(str(e) + "- required module not found")
 
@@ -30,15 +31,6 @@ class Component(ComponentBase):
     def __init__(self, component_index=0):
         self.index = component_index
         self.name = self.get_name()
-
-    def isDockerEnv(self):
-        num_docker = 0
-        with open('/proc/self/cgroup', 'r') as f:
-            num_docker = f.read().count(":/docker")
-        if num_docker > 0:
-            return True
-        else:
-            return False
 
     def _run_command(self, command):
         # Run bash command and print output to stdout
@@ -71,7 +63,7 @@ class Component(ComponentBase):
         cmdstatus = 0
         fpga_fw_version = ""
 
-        if self.isDockerEnv():
+        if utils.isDockerEnv():
             cmdstatus, fpga_fw_version = getstatusoutput_noshell(['i2cget', '-f', '-y', str(FPGA_I2C_BUS_NUM), str(FPGA_DEV_ADDR), str(FPGA_FW_VERSION_REG_OFFSET)])
         else:
             cmdstatus, fpga_fw_version = getstatusoutput_noshell(['sudo', 'i2cget', '-f', '-y', str(FPGA_I2C_BUS_NUM), str(FPGA_DEV_ADDR), str(FPGA_FW_VERSION_REG_OFFSET)])
